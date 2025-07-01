@@ -67,6 +67,9 @@ WORKDIR /root
 COPY --from=librtlsdr_builder /build/root/ /
 COPY --from=rtl_433_builder /build/root/ /
 
+# Ensure librtlsdr is available
+RUN ldconfig
+
 # Include run script
 COPY run.sh /
 RUN chmod +x /run.sh
