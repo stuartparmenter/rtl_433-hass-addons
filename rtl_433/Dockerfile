@@ -1,63 +1,72 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-debian:bookworm
 FROM $BUILD_FROM as builder
-MAINTAINER pavlov@pavlov.net
+
+LABEL maintainer="pavlov@pavlov.net"
 
 ENV LANG C.UTF-8
 
-# Copied with minor edits from https://github.com/hertzg/rtl_433_docker/blob/master/images/alpine/build-context/Dockerfile
-RUN apk add --no-cache --virtual .buildDeps \
-    build-base \
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
     libusb-dev \
     libusb-1.0-0-dev \
-    openssl-dev \
+    libssl-dev \
     cmake \
-    git
+    git && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
+# --- Stage: Build librtlsdr ---
 FROM builder as librtlsdr_builder
 
+WORKDIR /build
 RUN git clone https://github.com/librtlsdr/librtlsdr
-WORKDIR ./librtlsdr
+WORKDIR /build/librtlsdr
 
-# Build a specific commit or tag.
 RUN git checkout master
-WORKDIR ./build
-RUN cmake ..
-RUN make -j 4
 
-WORKDIR /build/root
-WORKDIR /build/librtlsdr/build
-RUN make install
-RUN ldconfig
+# Build and install to staging root
+RUN mkdir build && cd build && \
+    cmake .. && \
+    make -j4 && \
+    make DESTDIR=/build/root/ install
 
-
+# --- Stage: Build rtl_433 ---
 FROM builder as rtl_433_builder
 
-RUN git clone https://github.com/merbanan/rtl_433
-WORKDIR ./rtl_433
+# Copy librtlsdr output to be available during rtl_433 build
+COPY --from=librtlsdr_builder /build/root/usr/local /usr/local
 
-# Build a specific commit or tag.
+WORKDIR /build
+RUN git clone https://github.com/merbanan/rtl_433
+WORKDIR /build/rtl_433
+
 ARG rtl433GitRevision=25.02
 RUN git checkout ${rtl433GitRevision}
-WORKDIR ./build
-RUN cmake ..
-RUN make -j 4
 
-WORKDIR /build/root
-WORKDIR /build/rtl_433/build
-RUN make DESTDIR=/build/root/ install
+# Build and install to staging root
+RUN mkdir build && cd build && \
+    cmake .. && \
+    make -j4 && \
+    make DESTDIR=/build/root/ install
 
+# --- Stage: Final image ---
 FROM $BUILD_FROM
 
 ENV LANG C.UTF-8
 
-RUN apk add --no-cache libusb sed
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libusb-1.0-0 \
+    sed && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /root
+
+# Copy installed binaries and libraries from both build stages
+COPY --from=librtlsdr_builder /build/root/ /
 COPY --from=rtl_433_builder /build/root/ /
 
-# Run script
+# Include run script
 COPY run.sh /
-RUN chmod a+x /run.sh
-
-CMD [ "/run.sh" ]
+RUN chmod +x /run.sh
