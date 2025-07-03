@@ -27,7 +27,7 @@ RUN git checkout master
 
 # Build and install to staging root
 RUN mkdir build && cd build && \
-    cmake .. && \
+    cmake .. -DINSTALL_UDEV_RULES=ON && \
     make -j4 && \
     make DESTDIR=/build/root/ install
 
