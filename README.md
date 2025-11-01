@@ -1,5 +1,15 @@
 # rtl_433 Home Assistant add-ons
 
+## ⚠️ DEPRECATED - This Repository Has Been Replaced
+
+**This forked version of the addon has been replaced by [rtl433-addon](https://github.com/stuartparmenter/rtl433-addon).**
+
+**Please install the new version from: https://github.com/stuartparmenter/homeassistant-addons**
+
+This fork is archived and no longer maintained.
+
+---
+
 This is a collection of Home Assistant add-ons that work with [rtl_433](https://github.com/merbanan/rtl_433).
 
 * [How to add this add-on repository to your Home Assistant install](https://home-assistant.io/hassio/installing_third_party_addons/)
